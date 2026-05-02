@@ -473,7 +473,7 @@ function renderSelfSelectBar() {
 }
 function selectSelf(name) {
   selfMember = (selfMember === name) ? null : name;
-  renderMemberBlock(); renderSelfSelectBar();
+  renderSelfSelectBar(); renderMemberBlock(); renderCalendar();
   if (selfMember) {
     var inp = document.getElementById('inp-' + selfMember);
     if (inp) inp.focus();

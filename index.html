@@ -236,7 +236,11 @@ select:focus{border-color:var(--accent);}
     </div>
 
     <div class="card">
-      <div class="card-title">📆 캘린더 <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">이름 선택 후 날짜 클릭 → 가능 토글 &nbsp;|&nbsp; 📌 클릭 → 메모</span></div>
+      <div class="card-title">📆 캘린더 <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">이름 선택 후 날짜 탭 → 가능 토글 &nbsp;|&nbsp; 📌 → 메모</span></div>
+      <div id="selectedMemberBanner" style="display:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;margin-bottom:12px;">
+        ✅ <span id="selectedMemberName"></span> 선택됨 — 날짜를 탭하면 가능/불가능이 바뀌어요
+        <span onclick="selectSelf(window.selfMember)" style="float:right;cursor:pointer;opacity:.8">✕ 해제</span>
+      </div>
       <div class="cal-month-label" id="calMonthLabel"></div>
       <div class="cal-wrap">
         <div class="cal-header">
@@ -298,7 +302,7 @@ var currentRoom = null, isAdmin = false;
 var members = [], availability = {}, memos = {};
 var currentYear, currentMonth;
 var dbListener = null, saveTimer = null;
-var selfMember = null, memoDate = null;
+window.selfMember = null; var selfMember = null, memoDate = null;
 
 // ── FIREBASE ──
 function roomRef(path) { return db.ref('hajumtime/' + currentRoom + '/' + path); }
@@ -472,16 +476,12 @@ function renderSelfSelectBar() {
     }).join('') + '</div>';
 }
 function selectSelf(name) {
-  selfMember = (selfMember === name) ? null : name;
+  window.selfMember = selfMember = (window.selfMember === name) ? null : name;
   renderSelfSelectBar(); renderMemberBlock(); renderCalendar();
-  if (selfMember) {
-    var inp = document.getElementById('inp-' + selfMember);
-    if (inp) inp.focus();
-  }
 }
 
 // ── MEMBER BLOCK ──
-function renderMemberBlock() {
+function renderMemberBlock() { updateSelectedBanner();
   var block = document.getElementById('memberBlock');
   block.innerHTML = members.map(function(m) {
     var days = availability[m] || new Set();
@@ -575,7 +575,8 @@ function renderCalendar() {
 
 // ── CAL CELL CLICK ──
 function onCalCellClick(d) {
-  if (selfMember) {
+  if (window.selfMember) {
+    var selfMember = window.selfMember;
     // 이름 선택된 경우: 가능 여부 토글
     var days = availability[selfMember] || new Set();
     if (days.has(d)) days.delete(d); else days.add(d);
@@ -696,6 +697,17 @@ function exportExcel() {
   XLSX.writeFile(wb, '합주일정_'+currentRoom+'_'+label+'.xlsx');
 }
 
+function updateSelectedBanner() {
+  var banner = document.getElementById('selectedMemberBanner');
+  var nameEl = document.getElementById('selectedMemberName');
+  if (!banner) return;
+  if (window.selfMember) {
+    banner.style.display = 'block';
+    if (nameEl) nameEl.textContent = window.selfMember;
+  } else {
+    banner.style.display = 'none';
+  }
+}
 function renderAll() {
   renderMemberManageList(); renderSelfSelectBar(); renderMemberBlock(); renderCalendar(); renderSummary();
 }

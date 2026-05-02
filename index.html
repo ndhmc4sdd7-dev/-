@@ -122,6 +122,12 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard',sans-serif;
 .cal-chip{font-size:9px;font-weight:700;border-radius:3px;padding:1px 4px;white-space:nowrap;}
 .cal-chip.ok{background:var(--ok-bg);color:var(--ok);}
 .cal-memo-preview{font-size:9px;color:var(--memo);background:var(--memo-bg);border-radius:3px;padding:1px 4px;margin-top:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.cal-cell.selectable{cursor:pointer;}
+.cal-cell.selectable:hover{background:#eff6ff;}
+.cal-cell.me-ok{background:rgba(22,163,74,.08);border:1.5px solid rgba(22,163,74,.3);}
+.cal-cell.me-ok:hover{background:rgba(22,163,74,.14);}
+.memo-icon{font-size:11px;opacity:0;transition:opacity .15s;cursor:pointer;padding:2px;}
+.cal-cell:hover .memo-icon{opacity:1;}
 /* SUMMARY */
 .summary-list{display:flex;flex-direction:column;gap:7px;}
 .summary-item{display:flex;align-items:center;gap:12px;background:var(--surface2);border-radius:9px;padding:10px 14px;flex-wrap:wrap;}
@@ -230,7 +236,7 @@ select:focus{border-color:var(--accent);}
     </div>
 
     <div class="card">
-      <div class="card-title">📆 캘린더 <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">날짜 클릭 → 메모 추가</span></div>
+      <div class="card-title">📆 캘린더 <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:6px">이름 선택 후 날짜 클릭 → 가능 토글 &nbsp;|&nbsp; 📌 클릭 → 메모</span></div>
       <div class="cal-month-label" id="calMonthLabel"></div>
       <div class="cal-wrap">
         <div class="cal-header">
@@ -549,16 +555,54 @@ function renderCalendar() {
     var chips = ok.map(function(m) { return '<span class="cal-chip ok">' + m + '</span>'; }).join('');
     var key = currentYear + '-' + (currentMonth+1) + '-' + d;
     var memo = memos[key] && memos[key].length ? memos[key][0] : '';
+    var isMeOk = selfMember && (availability[selfMember]||new Set()).has(d);
     html += '<div class="cal-cell' +
       (isToday ? ' today' : '') +
       (dow === 0 ? ' weekend-sun' : dow === 6 ? ' weekend-sat' : '') +
-      (ok.length > 0 ? ' has-mark' : '') + '" onclick="openMemoModal(' + d + ')">' +
+      (ok.length > 0 ? ' has-mark' : '') +
+      (selfMember ? ' selectable' : '') +
+      (isMeOk ? ' me-ok' : '') + '" onclick="onCalCellClick(' + d + ')">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
       '<span class="day-num">' + d + '<span style="font-size:9px;font-weight:400;color:var(--muted)"> ' + dowKo[dow] + '</span></span>' +
+      '<span class="memo-icon" onclick="event.stopPropagation();openMemoModal(' + d + ')" title="메모">📌</span>' +
+      '</div>' +
       '<div class="cal-chips">' + chips + '</div>' +
       (memo ? '<div class="cal-memo-preview">📌 ' + memo + (memos[key].length > 1 ? ' +' + (memos[key].length-1) : '') + '</div>' : '') +
       '</div>';
   }
   document.getElementById('calGrid').innerHTML = html;
+}
+
+// ── CAL CELL CLICK ──
+function onCalCellClick(d) {
+  if (selfMember) {
+    // 이름 선택된 경우: 가능 여부 토글
+    var days = availability[selfMember] || new Set();
+    if (days.has(d)) days.delete(d); else days.add(d);
+    availability[selfMember] = days;
+    // 입력창 값도 업데이트
+    var sorted = Array.from(days).sort(function(a,b){return a-b;});
+    var inp = document.getElementById('inp-' + selfMember);
+    if (inp) inp.value = sorted.join(' ');
+    // 칩 미리보기 업데이트
+    if (inp) {
+      var wrap = inp.parentNode;
+      var existing = wrap.querySelector('.chip-preview');
+      if (existing) existing.remove();
+      if (days.size > 0) {
+        var div = document.createElement('div'); div.className = 'chip-preview';
+        div.innerHTML = sorted.map(function(x){return '<span class="chip">'+x+'일</span>';}).join('');
+        wrap.appendChild(div);
+      }
+      var row = inp.closest('.member-row');
+      if (row) row.classList.toggle('has-data', days.size > 0);
+    }
+    renderCalendar(); renderSummary();
+    clearTimeout(saveTimer); saveTimer = setTimeout(saveToFirebase, 800);
+  } else {
+    // 이름 미선택: 메모 모달 열기
+    openMemoModal(d);
+  }
 }
 
 // ── MEMO MODAL ──

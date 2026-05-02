@@ -504,22 +504,33 @@ function parseDates(input) {
   });
   return days;
 }
+var calTimer = null;
 function onDateInput(member, value) {
   availability[member] = parseDates(value);
-  // 칩 미리보기만 즉시 업데이트 (입력창 커서 유지)
-  var wrap = document.getElementById('inp-' + member).parentNode;
-  var days = availability[member], sorted = Array.from(days).sort(function(a,b){return a-b;});
-  var existing = wrap.querySelector('.chip-preview');
-  if (existing) existing.remove();
-  if (days.size > 0) {
-    var div = document.createElement('div'); div.className = 'chip-preview';
-    div.innerHTML = sorted.map(function(d){return '<span class="chip">'+d+'일</span>';}).join('');
-    wrap.appendChild(div);
+
+  // 칩 미리보기 즉시 업데이트 (포커스 유지)
+  var inp = document.getElementById('inp-' + member);
+  if (inp) {
+    var wrap = inp.parentNode;
+    var days = availability[member], sorted = Array.from(days).sort(function(a,b){return a-b;});
+    var existing = wrap.querySelector('.chip-preview');
+    if (existing) existing.remove();
+    if (days.size > 0) {
+      var div = document.createElement('div'); div.className = 'chip-preview';
+      div.innerHTML = sorted.map(function(d){return '<span class="chip">'+d+'일</span>';}).join('');
+      wrap.appendChild(div);
+    }
+    var row = inp.closest('.member-row');
+    if (row) row.classList.toggle('has-data', days.size > 0);
   }
-  var row = document.getElementById('inp-' + member).closest('.member-row');
-  if (row) { row.classList.toggle('has-data', days.size > 0); }
-  renderCalendar(); renderSummary();
-  clearTimeout(saveTimer); saveTimer = setTimeout(saveToFirebase, 800);
+
+  // 캘린더/요약은 디바운스 (포커스 안 날아가게)
+  clearTimeout(calTimer);
+  calTimer = setTimeout(function() {
+    renderCalendar(); renderSummary();
+  }, 400);
+
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveToFirebase, 1200);
 }
 
 // ── CALENDAR ──
